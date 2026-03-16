@@ -257,6 +257,7 @@ const BILLING_402_PLAN_HINTS = [
   "upgrade plan",
   "current plan",
   "subscription",
+  "plus plan",
 ] as const;
 
 const PERIODIC_402_HINTS = ["daily", "weekly", "monthly"] as const;
@@ -402,6 +403,11 @@ export function classifyFailoverReasonFromHttpStatus(
     return message ? classify402Message(message) : "billing";
   }
   if (status === 429) {
+    // ChatGPT Plus/Pro usage limits behave like billing limits (reset after
+    // days, not seconds), so classify them as "billing" for longer cooldowns.
+    if (message && /usage limit.*plus plan|plus plan.*usage limit/i.test(message)) {
+      return "billing";
+    }
     return "rate_limit";
   }
   if (status === 401 || status === 403) {
