@@ -1472,7 +1472,7 @@ describe("compaction-safeguard extension model fallback", () => {
     expect(result).toEqual({ cancel: true });
 
     // KEY ASSERTION: Prove the fallback path was exercised
-    // The handler should have called getApiKey with runtime.model (via ctx.model ?? runtime?.model)
+    // The handler should have called getApiKey with runtime.model (via runtime?.model ?? ctx.model)
     expect(getApiKeyMock).toHaveBeenCalledWith(model);
 
     // Verify runtime.model is still available (for completeness)

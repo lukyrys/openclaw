@@ -109,7 +109,7 @@ import {
 } from "../google.js";
 import { getDmHistoryLimitFromSessionKey, limitHistoryTurns } from "../history.js";
 import { log } from "../logger.js";
-import { buildModelAliasLines } from "../model.js";
+import { buildModelAliasLines, resolveModelAsync } from "../model.js";
 import {
   clearActiveEmbeddedRun,
   type EmbeddedPiQueueHandle,
@@ -1781,6 +1781,43 @@ export async function runEmbeddedAttempt(
         contextEngineInfo: params.contextEngine?.info,
       });
 
+      // Resolve compaction model override from config so safeguard compaction
+      // uses the configured model instead of the run's primary model.
+      let compactionModel: typeof params.model | undefined;
+      let compactionProvider: string | undefined;
+      let compactionModelId: string | undefined;
+      const compactionModelOverride =
+        params.config?.agents?.defaults?.compaction?.model?.trim();
+      if (compactionModelOverride) {
+        const slashIdx = compactionModelOverride.indexOf("/");
+        if (slashIdx > 0) {
+          compactionProvider = compactionModelOverride.slice(0, slashIdx).trim();
+          compactionModelId = compactionModelOverride.slice(slashIdx + 1).trim();
+        } else {
+          compactionProvider = params.provider;
+          compactionModelId = compactionModelOverride;
+        }
+        try {
+          const resolved = await resolveModelAsync(
+            compactionProvider,
+            compactionModelId,
+            agentDir,
+            params.config,
+          );
+          if (resolved.model) {
+            compactionModel = resolved.model;
+          } else {
+            log.warn(
+              `[compaction] failed to resolve override model "${compactionModelOverride}": ${resolved.error ?? "unknown"}`,
+            );
+          }
+        } catch (err) {
+          log.warn(
+            `[compaction] failed to resolve override model "${compactionModelOverride}": ${err}`,
+          );
+        }
+      }
+
       // Sets compaction/pruning runtime state and returns extension factories
       // that must be passed to the resource loader for the safeguard to be active.
       const extensionFactories = buildEmbeddedExtensionFactories({
@@ -1789,6 +1826,9 @@ export async function runEmbeddedAttempt(
         provider: params.provider,
         modelId: params.modelId,
         model: params.model,
+        compactionModel,
+        compactionProvider,
+        compactionModelId,
       });
       // Only create an explicit resource loader when there are extension factories
       // to register; otherwise let createAgentSession use its built-in default.

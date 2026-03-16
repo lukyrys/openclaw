@@ -67,16 +67,23 @@ export function buildEmbeddedExtensionFactories(params: {
   provider: string;
   modelId: string;
   model: Model<Api> | undefined;
+  /** Resolved compaction model override from compaction.model config. */
+  compactionModel?: Model<Api>;
+  compactionProvider?: string;
+  compactionModelId?: string;
 }): ExtensionFactory[] {
   const factories: ExtensionFactory[] = [];
   if (resolveCompactionMode(params.cfg) === "safeguard") {
     const compactionCfg = params.cfg?.agents?.defaults?.compaction;
     const qualityGuardCfg = compactionCfg?.qualityGuard;
+    const effectiveModel = params.compactionModel ?? params.model;
+    const effectiveProvider = params.compactionProvider ?? params.provider;
+    const effectiveModelId = params.compactionModelId ?? params.modelId;
     const contextWindowInfo = resolveContextWindowInfo({
       cfg: params.cfg,
-      provider: params.provider,
-      modelId: params.modelId,
-      modelContextWindow: params.model?.contextWindow,
+      provider: effectiveProvider,
+      modelId: effectiveModelId,
+      modelContextWindow: effectiveModel?.contextWindow,
       defaultTokens: DEFAULT_CONTEXT_TOKENS,
     });
     setCompactionSafeguardRuntime(params.sessionManager, {
@@ -87,7 +94,7 @@ export function buildEmbeddedExtensionFactories(params: {
       customInstructions: compactionCfg?.customInstructions,
       qualityGuardEnabled: qualityGuardCfg?.enabled ?? false,
       qualityGuardMaxRetries: qualityGuardCfg?.maxRetries,
-      model: params.model,
+      model: effectiveModel,
       recentTurnsPreserve: compactionCfg?.recentTurnsPreserve,
     });
     factories.push(compactionSafeguardExtension);
