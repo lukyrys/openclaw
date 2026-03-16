@@ -30,7 +30,6 @@ export function stripReasoningTagsFromText(
     return text;
   }
 
-  const mode = options?.mode ?? "strict";
   const trimMode = options?.trim ?? "both";
 
   let cleaned = text;
@@ -84,9 +83,12 @@ export function stripReasoningTagsFromText(
     lastIndex = idx + match[0].length;
   }
 
-  if (!inThinking || mode === "preserve") {
-    result += cleaned.slice(lastIndex);
-  }
+  // Always append trailing text. When a `<think>` tag is opened but never
+  // closed (common with Gemini models), strict mode previously discarded
+  // all remaining text — causing empty replies. Preserving the tail is
+  // safe: properly closed blocks are already stripped above, and an
+  // unclosed `<think>` is a model bug, not intentional hidden reasoning.
+  result += cleaned.slice(lastIndex);
 
   return applyTrim(result, trimMode);
 }
